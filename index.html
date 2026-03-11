@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>数字遗产点云博物馆</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+<style>
+
+body{
+margin:0;
+background:#000406;
+overflow:hidden;
+font-family:"Noto Serif SC",serif;
+}
+
+/* 玻璃UI */
+.glass{
+background:rgba(255,255,255,0.04);
+backdrop-filter:blur(14px);
+border:1px solid rgba(255,255,255,0.08);
+box-shadow:0 10px 40px rgba(0,0,0,0.7);
+}
+
+/* 标题 */
+.museumTitle{
+font-size:30px;
+letter-spacing:4px;
+color:#f6c343;
+font-weight:600;
+text-shadow:
+0 0 8px rgba(246,195,67,0.9),
+0 0 25px rgba(246,195,67,0.4);
+}
+
+.museumSub{
+font-size:12px;
+color:#72dfff;
+letter-spacing:3px;
+}
+
+/* 信息卡片 */
+
+.infoCardRight{
+position:fixed;
+top:80px;
+right:40px;
+width:420px;
+height:calc(100vh - 14vh);
+padding:28px;
+background:rgba(10,20,25,0.35);
+border:1px solid rgba(255,255,255,0.08);
+backdrop-filter:blur(14px);
+border-radius:18px;
+overflow:auto;
+color:#d7faff;
+}
+
+.infoCardLeft{
+position:fixed;
+top:80px;
+left:40px;
+width:420px;
+height:calc(100vh - 14vh);
+padding:28px;
+background:rgba(10,20,25,0.35);
+border:1px solid rgba(255,255,255,0.08);
+backdrop-filter:blur(14px);
+border-radius:18px;
+overflow:auto;
+color:#7df7ff;
+font-size:12px;
+}
+
+.artifactTitle{
+font-size:26px;
+color:#ffd15c;
+margin-bottom:20px;
+letter-spacing:3px;
+text-shadow:0 0 12px rgba(255,210,80,0.8);
+}
+
+.artifactText{
+font-size:14px;
+line-height:1.8;
+white-space:pre-wrap;
+color:#9fd9ff;
+}
+
+/* 按钮 */
+
+.btn{
+margin-top:20px;
+padding:8px 18px;
+border-radius:10px;
+background:linear-gradient(135deg,#ffd15c,#39d7ff);
+color:black;
+font-weight:bold;
+cursor:pointer;
+}
+
+canvas{
+display:block;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- 左上标题 -->
+
+<div class="fixed top-8 left-8 z-10 p-6 rounded-2xl glass">
+
+<h1 class="museumTitle">
+数字遗产点云博物馆
+</h1>
+
+<p class="museumSub">
+Digital Heritage Point Cloud Museum
+</p>
+
+</div>
+
+<!-- 左侧HTML代码 -->
+
+<div class="infoCardLeft">
+
+<h2 class="artifactTitle">
+系统HTML代码
+</h2>
+
+<pre id="codeText"></pre>
+
+</div>
+
+
+<!-- 右侧文物介绍 -->
+
+<div class="infoCardRight">
+
+<h2 class="artifactTitle">
+戴金面罩人头像
+</h2>
+
+<div id="artifactText" class="artifactText"></div>
+
+<button id="rotateBtn" class="btn">
+展示
+</button>
+
+</div>
+
+
+<!-- 摄像头窗口 -->
+
+<div class="fixed bottom-8 right-8 z-10 w-48 h-36 rounded-lg glass overflow-hidden">
+
+<canvas id="trackCanvas" class="absolute inset-0 z-20 pointer-events-none"></canvas>
+
+<video id="video" autoplay muted class="w-full h-full object-cover opacity-40 grayscale"></video>
+
+</div>
+
+
+<div id="app"></div>
+
+<script type="importmap">
+{
+"imports":{
+"three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+"three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"
+}
+}
+</script>
+
+
+<script type="module">
+
+import * as THREE from 'three';
+import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
+import {MeshSurfaceSampler} from 'three/addons/math/MeshSurfaceSampler.js';
+import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
+import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
+import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+
+/* 配置 */
+
+const CONFIG={
+
+particleCount:200000,
+
+models:['mask.obj','people.obj'],
+
+colors:{
+
+gold:0xffd700, // 粒子金色
+
+cyan:0x00ffff  // 粒子青色
+
+}
+
+};
+
+
+let scene,camera,renderer,composer,particles,shaderMaterial;
+
+let targetScale=1;
+
+let currentIdx=0;
+
+let rotateActive=false;
+
+let mouseTrail=[];
+
+
+
+init();
+
+function init(){
+
+scene=new THREE.Scene();
+
+camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000);
+
+camera.position.z=12;
+
+renderer=new THREE.WebGLRenderer();
+
+renderer.setSize(innerWidth,innerHeight);
+
+renderer.toneMapping=THREE.ReinhardToneMapping;
+
+renderer.toneMappingExposure=0.85; // 防止过曝
+
+document.getElementById("app").appendChild(renderer.domElement);
+
+
+/* bloom */
+
+const renderPass=new RenderPass(scene,camera);
+
+const bloomPass=new UnrealBloomPass(
+new THREE.Vector2(innerWidth,innerHeight),
+0.45,
+0.3,
+0.9
+);
+
+composer=new EffectComposer(renderer);
+
+composer.addPass(renderPass);
+
+composer.addPass(bloomPass);
+
+
+
+shaderMaterial=new THREE.ShaderMaterial({
+
+uniforms:{
+
+uTime:{value:0},
+
+uMorph:{value:0},
+
+uColorCyan:{value:new THREE.Color(CONFIG.colors.cyan)},
+
+uColorGold:{value:new THREE.Color(CONFIG.colors.gold)}
+
+},
+
+vertexShader:`
+
+uniform float uTime;
+uniform float uMorph;
+attribute vec3 targetPos;
+
+varying float vY;
+
+void main(){
+
+vec3 pos=mix(position,targetPos,uMorph);
+
+pos.y+=sin(uTime+position.x)*0.1*(1.0-uMorph);
+
+vY=pos.y;
+
+vec4 mv=modelViewMatrix*vec4(pos,1.0);
+
+gl_PointSize=2.5*(10.0/-mv.z);
+
+gl_Position=projectionMatrix*mv;
+
+}
+
+`,
+
+fragmentShader:`
+
+uniform vec3 uColorCyan;
+uniform vec3 uColorGold;
+
+varying float vY;
+
+void main(){
+
+float grad=clamp(vY*0.25+0.5,0.0,1.0);
+
+vec3 color=mix(uColorCyan,uColorGold,grad);
+
+color=pow(color,vec3(0.8));
+
+gl_FragColor=vec4(color,0.85);
+
+}
+
+`,
+
+transparent:true,
+blending:THREE.AdditiveBlending,
+depthTest:false
+
+});
+
+
+
+/* 粒子初始化 */
+
+const geo=new THREE.BufferGeometry();
+
+const pos=new Float32Array(CONFIG.particleCount*3);
+
+const tar=new Float32Array(CONFIG.particleCount*3);
+
+for(let i=0;i<pos.length;i++){
+
+pos[i]=(Math.random()-0.5)*20;
+
+tar[i]=pos[i];
+
+}
+
+geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+
+geo.setAttribute("targetPos",new THREE.BufferAttribute(tar,3));
+
+particles=new THREE.Points(geo,shaderMaterial);
+
+scene.add(particles);
+
+
+
+loadModel(CONFIG.models[0]);
+
+
+
+window.addEventListener("mousemove",e=>{
+
+const rot=(e.clientX/innerWidth-0.5)*Math.PI*0.5;
+
+gsap.to(particles.rotation,{y:rot,duration:1});
+
+mouseTrail.push({x:e.clientX,y:e.clientY,time:Date.now()});
+
+});
+
+
+window.addEventListener("wheel",e=>{
+
+targetScale=THREE.MathUtils.clamp(targetScale-e.deltaY*0.0012,0.4,3.5);
+
+});
+
+
+window.addEventListener("dblclick",toggleModel);
+
+window.addEventListener("resize",onResize);
+
+
+
+document.getElementById("rotateBtn").onclick=()=>{
+
+rotateActive=!rotateActive;
+
+document.getElementById("rotateBtn").innerText=rotateActive?"停止旋转":"展示";
+
+};
+
+
+
+setupCamera();
+
+animate();
+
+}
+
+
+
+/* 加载模型 */
+
+function loadModel(url){
+
+const loader=new OBJLoader();
+
+loader.load(url,obj=>{
+
+let mesh;
+
+obj.traverse(c=>{if(c.isMesh)mesh=c});
+
+mesh.geometry.center();
+
+mesh.geometry.computeBoundingBox();
+
+
+
+const box=mesh.geometry.boundingBox;
+
+const size=new THREE.Vector3();
+
+box.getSize(size);
+
+const scale=7/Math.max(size.x,size.y,size.z);
+
+
+
+const sampler=new MeshSurfaceSampler(mesh).build();
+
+const temp=new THREE.Vector3();
+
+const attr=particles.geometry.attributes.targetPos;
+
+
+
+for(let i=0;i<CONFIG.particleCount;i++){
+
+sampler.sample(temp);
+
+attr.setXYZ(i,temp.x*scale,temp.y*scale,temp.z*scale);
+
+}
+
+attr.needsUpdate=true;
+
+
+
+gsap.to(shaderMaterial.uniforms.uMorph,{value:1,duration:2});
+
+});
+
+}
+
+
+
+/* 切换模型 */
+
+function toggleModel(){
+
+gsap.to(shaderMaterial.uniforms.uMorph,{
+
+value:0,
+
+duration:0.8,
+
+onComplete:()=>{
+
+currentIdx=(currentIdx+1)%CONFIG.models.length;
+
+loadModel(CONFIG.models[currentIdx]);
+
+}
+
+});
+
+}
+
+
+
+async function setupCamera(){
+
+try{
+
+const stream=await navigator.mediaDevices.getUserMedia({video:true});
+
+video.srcObject=stream;
+
+}catch{}
+
+}
+
+
+
+function onResize(){
+
+camera.aspect=innerWidth/innerHeight;
+
+camera.updateProjectionMatrix();
+
+renderer.setSize(innerWidth,innerHeight);
+
+composer.setSize(innerWidth,innerHeight);
+
+}
+
+
+
+function animate(){
+
+requestAnimationFrame(animate);
+
+shaderMaterial.uniforms.uTime.value+=0.015;
+
+particles.scale.lerp(new THREE.Vector3(targetScale,targetScale,targetScale),0.1);
+
+if(rotateActive)particles.rotation.y+=0.01;
+
+
+/* 鼠标轨迹 */
+
+const canvas=document.getElementById("trackCanvas");
+
+const ctx=canvas.getContext("2d");
+
+canvas.width=200;
+
+canvas.height=150;
+
+mouseTrail=mouseTrail.filter(p=>Date.now()-p.time<5000);
+
+ctx.clearRect(0,0,200,150);
+
+if(mouseTrail.length>1){
+
+ctx.beginPath();
+
+ctx.strokeStyle="cyan";
+
+mouseTrail.forEach((p,i)=>{
+
+const x=(p.x/innerWidth)*200;
+
+const y=(p.y/innerHeight)*150;
+
+if(i==0)ctx.moveTo(x,y);
+
+else ctx.lineTo(x,y);
+
+});
+
+ctx.stroke();
+
+}
+
+composer.render();
+
+}
+
+
+
+/* 打字机动画 */
+
+function typeWriter(el,text,speed){
+
+let i=0;
+
+function t(){
+
+if(i<text.length){
+
+el.innerHTML+=text.charAt(i);
+
+i++;
+
+setTimeout(t,speed);
+
+}
+
+}
+
+t();
+
+}
+
+
+
+/* 文物介绍 */
+
+const intro=`
+三星堆戴金面罩人头像是三星堆遗址出土的重要文物之一。该文物出土于四川省广汉市三星堆遗址祭祀坑中，年代约为距今三千多年。它由青铜铸造而成，面部覆盖金箔面罩，是古蜀文明青铜艺术的代表作品之一。
+
+该人头像的整体造型具有明显的神祇化特征。面部轮廓宽阔而庄严，眼睛呈杏仁形并略微外凸，鼻梁高挺，嘴唇紧闭。尤其是覆盖在面部的金箔面罩，使整个形象更加神秘而庄重。黄金在古代文化中常常象征着神圣、权力和尊贵，因此学者普遍认为，这类金面罩人头像可能代表祭祀中的神灵形象，或者是古蜀社会中具有重要宗教地位的人物。
+
+从工艺角度来看，这件文物体现了极高的金属加工水平。青铜头像采用范铸技术完成，而金面罩则通过锤揲工艺制作成极薄的金箔，再贴合于青铜面部。金箔能够紧密贴合复杂的面部结构，说明当时已经掌握了成熟的金属延展技术和装饰技术。
+
+三星堆文明在中国古代文明体系中具有非常独特的地位。与中原地区常见的青铜器纹饰不同，三星堆文化更强调立体雕塑和神像造型。大量青铜人像、青铜神树以及各种神秘造型的面具，都反映出古蜀人独特的宗教信仰和宇宙观。
+
+戴金面罩人头像不仅是一件艺术杰作，也是一件重要的历史文物。通过它，我们可以窥见三千年前古蜀文明的精神世界，以及他们对于神灵、祖先和权力的理解。
+
+在现代数字技术的帮助下，考古学家可以通过三维扫描技术对文物进行高精度建模。通过点云重建方法，可以将文物的几何结构转换为数十万粒子的数字模型。这种方式不仅能够保留文物形态，还可以让观众在虚拟空间中自由观察文物。
+
+数字遗产技术为文化遗产保护提供了新的可能。通过数字化重建，即使文物受到时间侵蚀，其形态也能够被永久保存。观众可以通过交互式系统旋转、缩放、观察文物细节，从而获得更加沉浸式的文化体验。
+
+因此，戴金面罩人头像不仅是古蜀文明的象征，也是数字时代文化传播的重要媒介。
+`;
+
+
+typeWriter(document.getElementById("artifactText"),intro,20);
+
+typeWriter(document.getElementById("codeText"),document.documentElement.outerHTML,1);
+
+
+</script>
+
+</body>
+</html>
