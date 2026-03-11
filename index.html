@@ -25,14 +25,14 @@ position:fixed;
 top:20px;
 left:50%;
 transform:translateX(-50%);
-padding:14px 28px;
-border-radius:16px;
+padding:12px 30px;
 background:rgba(0,0,0,0.35);
 backdrop-filter:blur(10px);
+border-radius:14px;
 }
 
 .titleMain{
-font-size:30px;
+font-size:28px;
 color:#f6c343;
 letter-spacing:4px;
 text-shadow:0 0 10px rgba(246,195,67,0.9);
@@ -45,39 +45,37 @@ letter-spacing:3px;
 text-align:center;
 }
 
-
 /* 卡片 */
 
 .card{
+position:fixed;
+top:120px;
+width:420px;
+height:calc(100vh - 200px);
+padding:22px;
+border-radius:16px;
 background:rgba(10,20,25,0.35);
 border:1px solid rgba(255,255,255,0.08);
 backdrop-filter:blur(12px);
-border-radius:16px;
-padding:24px;
-position:fixed;
 overflow:hidden;
 }
 
-/* 左侧代码卡片 */
+/* 左侧 */
 
 .codeCard{
-top:120px;
 left:30px;
-width:420px;
-height:calc(100vh - 200px);
 color:#7df7ff;
 font-size:12px;
 }
 
-/* 右侧介绍卡片 */
+/* 右侧 */
 
 .infoCard{
-top:120px;
 right:30px;
-width:420px;
-height:calc(100vh - 200px);
 color:#9fd9ff;
 }
+
+/* 标题 */
 
 .cardTitle{
 font-size:24px;
@@ -86,20 +84,12 @@ margin-bottom:18px;
 letter-spacing:2px;
 }
 
+/* 内容 */
+
 .cardContent{
-line-height:1.7;
-white-space:pre-wrap;
-}
-
-
-/* 隐藏滚动条 */
-
-.card::-webkit-scrollbar{
-display:none;
-}
-
-pre::-webkit-scrollbar{
-display:none;
+line-height:1.8;
+display:flex;
+flex-direction:column;
 }
 
 /* 摄像头 */
@@ -117,16 +107,11 @@ background:rgba(0,0,0,0.3);
 backdrop-filter:blur(8px);
 }
 
-/* 按钮 */
+/* 按钮隐藏 */
 
 .btn{
-margin-top:16px;
-padding:8px 20px;
-border-radius:10px;
-background:linear-gradient(135deg,#ffd15c,#39d7ff);
-color:black;
-font-weight:bold;
-cursor:pointer;
+opacity:0;
+pointer-events:none;
 }
 
 </style>
@@ -135,19 +120,9 @@ cursor:pointer;
 <body>
 
 <div class="titlePanel">
-
-<div class="titleMain">
-数字遗产点云博物馆
+<div class="titleMain">数字遗产点云博物馆</div>
+<div class="titleSub">Digital Heritage Point Cloud Museum</div>
 </div>
-
-<div class="titleSub">
-Digital Heritage Point Cloud Museum
-</div>
-
-</div>
-
-
-<!-- 左侧代码卡片 -->
 
 <div class="card codeCard">
 
@@ -155,12 +130,10 @@ Digital Heritage Point Cloud Museum
 系统HTML代码
 </div>
 
-<pre id="codeText"></pre>
+<div id="codeText" class="cardContent"></div>
 
 </div>
 
-
-<!-- 右侧文物卡片 -->
 
 <div class="card infoCard">
 
@@ -170,14 +143,10 @@ Digital Heritage Point Cloud Museum
 
 <div id="artifactText" class="cardContent"></div>
 
-<button id="rotateBtn" class="btn">
-展示
-</button>
+<button id="rotateBtn" class="btn">展示</button>
 
 </div>
 
-
-<!-- 摄像头 -->
 
 <div class="cameraPanel">
 
@@ -211,7 +180,6 @@ import {RenderPass} from 'three/addons/postprocessing/RenderPass.js'
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js'
 
 
-
 const CONFIG={
 
 particleCount:200000,
@@ -220,29 +188,24 @@ models:['mask.obj','people.obj'],
 
 colors:{
 
-gold:0xffd700, // 金色粒子
-
-cyan:0x00ffff  // 青色粒子
-
-}
+gold:0xffd700,
+cyan:0x00ffff
 
 }
 
+}
 
 
 let scene,camera,renderer,composer
 let particles,shaderMaterial
 
 let targetScale=1
-
 let currentIdx=0
 
 let interactionMode=false
-
 let rotateActive=true
 
 let mouseTrail=[]
-
 
 
 init()
@@ -252,15 +215,14 @@ function init(){
 scene=new THREE.Scene()
 
 camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,1000)
-
 camera.position.z=12
 
-renderer=new THREE.WebGLRenderer()
+renderer=new THREE.WebGLRenderer({antialias:false})
 
 renderer.setSize(innerWidth,innerHeight)
 
 renderer.toneMapping=THREE.ReinhardToneMapping
-renderer.toneMappingExposure=0.85
+renderer.toneMappingExposure=0.8
 
 document.getElementById("app").appendChild(renderer.domElement)
 
@@ -269,9 +231,9 @@ const renderPass=new RenderPass(scene,camera)
 
 const bloomPass=new UnrealBloomPass(
 new THREE.Vector2(innerWidth,innerHeight),
-0.45,
-0.3,
-0.9
+0.25,
+0.25,
+0.85
 )
 
 composer=new EffectComposer(renderer)
@@ -280,15 +242,18 @@ composer.addPass(renderPass)
 composer.addPass(bloomPass)
 
 
-
 shaderMaterial=new THREE.ShaderMaterial({
 
 uniforms:{
+
 uTime:{value:0},
 uMorph:{value:0},
 
-uColorCyan:{value:new THREE.Color(CONFIG.colors.cyan)}, // 青色粒子
-uColorGold:{value:new THREE.Color(CONFIG.colors.gold)}  // 金色粒子
+uBrightness:{value:0.55},
+
+uColorCyan:{value:new THREE.Color(CONFIG.colors.cyan)},
+uColorGold:{value:new THREE.Color(CONFIG.colors.gold)}
+
 },
 
 vertexShader:`
@@ -310,7 +275,7 @@ vY=pos.y;
 
 vec4 mv=modelViewMatrix*vec4(pos,1.0);
 
-gl_PointSize=2.5*(10.0/-mv.z);
+gl_PointSize=2.2*(10.0/-mv.z);
 
 gl_Position=projectionMatrix*mv;
 
@@ -322,6 +287,7 @@ fragmentShader:`
 
 uniform vec3 uColorCyan;
 uniform vec3 uColorGold;
+uniform float uBrightness;
 
 varying float vY;
 
@@ -331,9 +297,9 @@ float grad=clamp(vY*0.25+0.5,0.0,1.0);
 
 vec3 color=mix(uColorCyan,uColorGold,grad);
 
-color=pow(color,vec3(0.8));
+color*=uBrightness;
 
-gl_FragColor=vec4(color,0.85);
+gl_FragColor=vec4(color,0.45);
 
 }
 
@@ -349,7 +315,6 @@ depthTest:false
 const geo=new THREE.BufferGeometry()
 
 const pos=new Float32Array(CONFIG.particleCount*3)
-
 const tar=new Float32Array(CONFIG.particleCount*3)
 
 for(let i=0;i<pos.length;i++){
@@ -367,9 +332,7 @@ particles=new THREE.Points(geo,shaderMaterial)
 scene.add(particles)
 
 
-
 loadModel(CONFIG.models[0])
-
 
 
 window.addEventListener("mousemove",e=>{
@@ -406,25 +369,11 @@ interactionMode=!interactionMode
 })
 
 
-document.getElementById("rotateBtn").onclick=()=>{
-
-interactionMode=false
-
-rotateActive=!rotateActive
-
-document.getElementById("rotateBtn").innerText=
-rotateActive?"停止展示":"展示"
-
-}
-
-
-
 setupCamera()
 
 animate()
 
 }
-
 
 
 function loadModel(url){
@@ -438,11 +387,9 @@ let mesh
 obj.traverse(c=>{if(c.isMesh)mesh=c})
 
 mesh.geometry.center()
-
 mesh.geometry.computeBoundingBox()
 
 const box=mesh.geometry.boundingBox
-
 const size=new THREE.Vector3()
 
 box.getSize(size)
@@ -472,7 +419,6 @@ gsap.to(shaderMaterial.uniforms.uMorph,{value:1,duration:2})
 }
 
 
-
 function toggleModel(){
 
 gsap.to(shaderMaterial.uniforms.uMorph,{
@@ -494,7 +440,6 @@ loadModel(CONFIG.models[currentIdx])
 }
 
 
-
 async function setupCamera(){
 
 try{
@@ -506,7 +451,6 @@ video.srcObject=stream
 }catch{}
 
 }
-
 
 
 function animate(){
@@ -523,8 +467,17 @@ particles.rotation.y+=0.006
 
 }
 
+drawTrail()
+
+composer.render()
+
+}
+
+
+function drawTrail(){
 
 const canvas=document.getElementById("trackCanvas")
+
 const ctx=canvas.getContext("2d")
 
 canvas.width=220
@@ -537,7 +490,6 @@ ctx.clearRect(0,0,220,150)
 if(mouseTrail.length>1){
 
 ctx.beginPath()
-
 ctx.strokeStyle="cyan"
 
 mouseTrail.forEach((p,i)=>{
@@ -554,27 +506,34 @@ ctx.stroke()
 
 }
 
-composer.render()
-
 }
 
 
+/* 无限纵向打字 */
 
-/* 无限循环打字 */
+function infiniteTypeVertical(el,text,speed){
 
-function infiniteType(el,text,speed){
+let lines=text.split("\n")
 
-let content=text+text
-
-let i=0
+let index=0
 
 function type(){
 
-el.innerText=content.substring(i,i+text.length)
+let line=document.createElement("div")
 
-i++
+line.textContent=lines[index]
 
-if(i>=text.length)i=0
+el.appendChild(line)
+
+index++
+
+if(index>=lines.length)index=0
+
+if(el.children.length>40){
+
+el.removeChild(el.children[0])
+
+}
 
 setTimeout(type,speed)
 
@@ -585,30 +544,47 @@ type()
 }
 
 
+const intro=`
 
-const intro=`三星堆戴金面罩人头像是三星堆遗址出土的重要文物之一……（此处可继续扩展1000字）`
+戴金面罩人头像是三星堆遗址出土的重要青铜文物之一，属于古蜀文明宗教艺术体系中的代表性作品。这件文物出土于四川广汉三星堆遗址祭祀坑中，其年代大约为距今三千多年，处于商代晚期至西周早期之间。
+
+该人头像整体为青铜铸造，表面覆盖金箔面罩。金面罩薄而精致，与青铜头像紧密贴合，体现出极高的金属工艺水平。头像面部轮廓夸张而神秘，眼睛呈杏仁形并略微外凸，鼻梁高耸，嘴唇紧闭，耳朵宽大。整体造型既具有现实人物特征，又带有明显的神祇化和象征化意味。
+
+金面罩的出现，使这件文物在视觉上极具震撼力。黄金在古代社会常常被视为神圣与权力的象征，因此学者普遍认为，这类带有金面罩的人头像可能代表着古蜀社会中的祭祀者、巫师，或某种神灵形象。它不仅是一件艺术品，也可能是祭祀仪式中用于沟通天地与祖先的神圣器物。
+
+从制作工艺上看，该人头像采用分段铸造与精细打磨技术。青铜主体通过范铸工艺完成，然后再将金箔覆盖于面部。金箔厚度极薄，却能够完整覆盖面部轮廓，说明当时已经掌握成熟的金属延展技术。
+
+三星堆文化以其高度抽象和夸张的艺术风格著称。与中原地区商周青铜器常见的纹饰体系不同，三星堆更强调立体雕塑和人物神像。戴金面罩人头像正是这种艺术传统的典型代表。它的面部比例被刻意拉长，五官结构具有强烈的象征意味，表现出古蜀人对于神秘力量的想象与崇拜。
+
+从考古学角度来看，这件文物的发现进一步证明了古蜀文明在青铜时代已经形成了独立而高度发展的文化体系。三星堆遗址中出土的大量青铜人像、青铜神树、金面具和玉器，显示出当时社会拥有复杂的宗教体系和精湛的工艺水平。
+
+戴金面罩人头像不仅是一件艺术杰作，更是一扇通往古蜀文明精神世界的大门。通过这件文物，我们能够窥见三千年前人们对于宇宙、神灵与权力的理解。
+
+在今天的数字博物馆展示中，通过三维扫描与点云重建技术，可以将这件文物以全新的形式呈现。数十万粒子点构成的数字模型，不仅能够精准还原其形态，还能通过互动方式让观众自由观察文物的细节。
+
+这种数字遗产技术使文物不再局限于实体展柜，而是能够在虚拟空间中被永久保存与传播。观众可以通过旋转、缩放、重构等方式深入了解文物结构，从而获得更丰富的文化体验。
+
+因此，戴金面罩人头像不仅是古蜀文明的象征，也成为数字遗产时代文化传播的重要媒介。
+
+`
 
 
-
-infiniteType(
+infiniteTypeVertical(
 document.getElementById("artifactText"),
 intro,
-30
+350
 )
-
 
 
 setTimeout(()=>{
 
-infiniteType(
+infiniteTypeVertical(
 document.getElementById("codeText"),
 document.documentElement.outerHTML,
-2
+20
 )
 
 },2000)
-
-
 
 </script>
 
