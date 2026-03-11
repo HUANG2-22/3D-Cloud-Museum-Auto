@@ -21,23 +21,54 @@ canvas{display:block}
 /* 标题 */
 
 .titlePanel{
+
 position:fixed;
-top:20px;
-left:50%;
-transform:translateX(-50%);
-padding:12px 30px;
-background:rgba(0,0,0,0.35);
-backdrop-filter:blur(10px);
-border-radius:14px;
+
+/* 与代码窗口右对齐 */
+right:30px;
+
+/* 位于代码卡片上方 */
+top:30px;
+
+width:420px;
+
+/* 白色玻璃效果 */
+background:rgba(255,255,255,0.12);
+
+backdrop-filter:blur(18px);
+-webkit-backdrop-filter:blur(18px);
+
+border-radius:16px;
+
+border:1px solid rgba(255,255,255,0.35);
+
+box-shadow:0 10px 40px rgba(0,0,0,0.35);
+
+padding:18px 24px;
+
 }
+
 
 .titleMain{
+
 font-size:28px;
-color:#f6c343;
-letter-spacing:4px;
-text-shadow:0 0 10px rgba(246,195,67,0.9);
+
+color:#f7c96b;
+
+letter-spacing:5px;
+
+font-weight:600;
+
+text-shadow:
+
+0 0 8px rgba(247,201,107,0.9),
+0 0 25px rgba(247,201,107,0.4);
+
 }
 
+
+
+  
 .titleSub{
 font-size:12px;
 color:#6fd7ff;
@@ -95,16 +126,28 @@ flex-direction:column;
 /* 摄像头 */
 
 .cameraPanel{
+
 position:fixed;
+
+/* 与代码窗口右对齐 */
+right:30px;
+
+/* 在代码窗口底部 */
 bottom:30px;
-left:50%;
-transform:translateX(-50%);
-width:220px;
-height:150px;
-border-radius:12px;
+
+width:420px;
+height:180px;
+
+border-radius:14px;
+
+background:rgba(255,255,255,0.08);
+
+backdrop-filter:blur(12px);
+
+border:1px solid rgba(255,255,255,0.18);
+
 overflow:hidden;
-background:rgba(0,0,0,0.3);
-backdrop-filter:blur(8px);
+
 }
 
 /* 按钮隐藏 */
